@@ -1,7 +1,10 @@
 import numpy as np
+import cv2
+
 from ReID import ResNet50
 from Kalman import kalman_filter
 from Target import target
+from Detection import YOLOv5
 
 class tracker(object):
     def __init__(self, reid = None, kalman = None):
@@ -60,3 +63,10 @@ class tracker(object):
             return np.array([all_targs, all_ass]).T, detections, targets
             
 
+tr = tracker()
+det = YOLOv5("saved_model")
+
+cam = cv2.VideoCapture(0)
+ret, frame = cam.read()
+frame = cv2.resize(frame, (640, 640), interpolation=cv2.INTER_LINEAR)
+det.display(det.process_output(det.run_net(frame)), frame, is_path = False)

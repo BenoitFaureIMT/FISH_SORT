@@ -9,8 +9,6 @@ class target(object):
         self.features = [features]
 
         #Initialize Kalman
-        self.in_size = 7
-
         self.kalman = kalman
         self.state = np.append(kalman.conv_param(bbox[:4], [[0], [0], [0]], axis = 0))#[[x], [y], [h], [w/h], [x'], [y'], [h']] x.y -> center
         self.pred_state = self.state

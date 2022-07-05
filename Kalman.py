@@ -4,6 +4,8 @@ import numpy.linalg as lalg
 class kalman_filter(object):
     def __init__(self, dt):
         #Init params
+        self.in_size = 7
+
         self.dt = dt
         self.update_matrix = self.get_update_matrix(dt)
 
@@ -35,7 +37,7 @@ class kalman_filter(object):
 
     #-----------------------------------------------------Update-----------------------------------------------------
     def update_pred(self, targ):
-        targ.pred_state = np.matmul(self.update_matrix, targ.state) #No controled input
+        targ.pred_stzate = np.matmul(self.update_matrix, targ.state) #No controled input
         targ.pred_cov = np.matmul(np.matmul(self.update_matrix, targ.cov), self.update_matrix.T) #+Q (ignored)
     
     def update_state_no_detect(self, targ):
@@ -58,4 +60,4 @@ class kalman_filter(object):
 
         #Update
         targ.state = targ.pred_state + np.matmul(kalman_gain, innovation_mean)
-        targ.cov = np.matmul(np.eye((targ.in_size)) - np.matmul(kalman_gain, self.observation_matrix), targ.pred_cov)
+        targ.cov = np.matmul(np.eye((self.in_size)) - np.matmul(kalman_gain, self.observation_matrix), targ.pred_cov)

@@ -1,3 +1,4 @@
+from pydoc import ispackage
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -27,8 +28,9 @@ class YOLOv5(object):
 
         #NMS
         output_data = np.array(output_data)
-        selected = tf.image.non_max_suppression(output_data[:, :4], output_data[:, 4], 30000, nms_iou_threshold)
-        output_data = output_data[selected, :]
+        if(len(output_data) == 0):
+            selected = tf.image.non_max_suppression(output_data[:, :4], output_data[:, 4], 30000, nms_iou_threshold)
+            output_data = output_data[selected, :]
 
         return output_data
 
@@ -45,8 +47,10 @@ class YOLOv5(object):
                 
         return output_data
 
-    def display(self, output_data, img_path):
-        img = cv2.imread(img_path)
+    def display(self, output_data, img_path, is_path = True):
+        img = img_path
+        if (is_path):
+            img = cv2.imread(img_path)
         coords = output_data[..., :4]
 
         for i in coords:
