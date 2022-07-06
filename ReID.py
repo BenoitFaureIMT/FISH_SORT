@@ -21,7 +21,7 @@ class ResNet50(object):
 
     def extract_features(self, img):
         img = cv2.resize(img, self.input_shape, cv2.INTER_LINEAR) / 255
-        img = np.array([img]) #Be carefull here...
+        img = np.array([img]) #TODO Be carefull here...
         f = self.model.predict(img)
         return (f / np.linalg.norm(f))[0]
     
