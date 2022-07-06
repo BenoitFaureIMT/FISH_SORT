@@ -1,5 +1,9 @@
 import numpy as np
-import numpy.linalg as lalg
+import scipy.linalg as lalg
+
+import utils
+
+#Note : input (x1, y1, x2, y2)
 
 class kalman_filter(object):
     def __init__(self, dt):
@@ -33,7 +37,7 @@ class kalman_filter(object):
     def center_to_corner(self, v):
         w = v[2] * v[3]
         h = v[3]
-        return [v[0] - w/2, v[1] - h/2, w, h]
+        return [v[1] - w/2, v[0] - h/2, w, h]
 
     #-----------------------------------------------------Update-----------------------------------------------------
     def update_pred(self, targ):
@@ -41,12 +45,12 @@ class kalman_filter(object):
         targ.pred_cov = np.matmul(np.matmul(self.update_matrix, targ.cov), self.update_matrix.T) #+Q (ignored)
     
     def update_state_no_detect(self, targ):
-        targ.state = targ.pred_sate
+        targ.state = targ.pred_state
         targ.cov = targ.pred_cov
         targ.age += 1
 
     def update_state(self, targ, detect):
-        R_cov_matrix = self.get_init_matrix(targ.pred_state)
+        R_cov_matrix = self.get_init_cov(targ.pred_state)
         R_cov_matrix *= (1 - detect[4])
         innovation_cov = np.matmul(np.matmul(self.observation_matrix, targ.pred_cov), self.observation_matrix.T) + R_cov_matrix
 
@@ -54,7 +58,7 @@ class kalman_filter(object):
         cho_factor, lower = lalg.cho_factor(innovation_cov, lower = True, check_finite = False)
         kalman_gain = lalg.cho_solve((cho_factor, lower), np.matmul(targ.pred_cov, self.observation_matrix.T).T, check_finite=True).T
 
-        param = self.conv_param(detect[:4])
+        param = utils.yxyx_kalman(detect[:4])
         param = np.append(param, (param[:3] - targ.state[:3])/self.dt, axis = 0)
         innovation_mean = param - np.matmul(self.observation_matrix, targ.pred_state)
 

@@ -28,7 +28,7 @@ class YOLOv5(object):
 
         #NMS
         output_data = np.array(output_data)
-        if(len(output_data) == 0):
+        if(len(output_data) != 0):
             selected = tf.image.non_max_suppression(output_data[:, :4], output_data[:, 4], 30000, nms_iou_threshold)
             output_data = output_data[selected, :]
 

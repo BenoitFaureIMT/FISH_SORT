@@ -11,25 +11,25 @@ class ResNet50(object):
             pooling=pooling)
         self.input_shape = input_shape
     
-    def extract_sub_image(self, img, bbox): #bbox -> [x1,y1,x2,y2] (x1, y1) top left, (x2, y2) botto right
+    def extract_sub_image(self, img, bbox): #bbox -> [y1,x1,y2,x2] (y1, x1) top left, (y2, x2) bottom right
         h, w, c = img.shape
-        return img[bbox[1]*h:bbox[3]*h, bbox[0]*w:bbox[0]*w]
+        return img[int(bbox[0]*h):int(bbox[2]*h), int(bbox[1]*w):int(bbox[3]*w)]
     
     def extract_sub_image_v2(self, img, bbox):#bbox -> [x, y, w, h]
         h, w, c = img.shape
-        return img[bbox[1]*h:(bbox[1] + bbox[3])*h,bbox[0]*w:(bbox[0] + bbox[2])*w]
+        return img[int(bbox[1]*h):int((bbox[1] + bbox[3])*h),int(bbox[0]*w):int((bbox[0] + bbox[2])*w)]
 
     def extract_features(self, img):
-        img = cv2.resize(img, self.input_shape, cv2.INTER_LINEAR)/255
-        img = img / 255
+        img = cv2.resize(img, self.input_shape, cv2.INTER_LINEAR) / 255
+        img = np.array([img]) #Be carefull here...
         f = self.model.predict(img)
-        return f / np.linalg.norm(f)
+        return (f / np.linalg.norm(f))[0]
     
     def get_distance(self, t1, t2, dist = "EuclideanDistance"):
-        return self.distances[dist](t1, t2)
+        return self.distances[dist](self, t1, t2)
     
     def get_features(self, img, bbox):
-        return self.extract_features(self.extract_sub_image_v2(img, bbox))
+        return self.extract_features(self.extract_sub_image(img, bbox))
     
     def extract_cost_matrix(self, targets, detection_features):
         cost_matrix = np.zeros((len(targets), len(detection_features)))
@@ -39,7 +39,7 @@ class ResNet50(object):
         return cost_matrix
     
     def get_cost_matrix(self, targets, img, bboxs):
-        detection_features = [self.get_features(img, bbox) for bbox in bboxs]
+        detection_features = np.array([self.get_features(img, bbox) for bbox in bboxs])
         return self.extract_cost_matrix(targets, detection_features), detection_features
     
     def extract_associations(self, cost_matrix):
