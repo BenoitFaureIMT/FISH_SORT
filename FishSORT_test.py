@@ -19,7 +19,7 @@ import utils
 #       Yolov5 (detection) -> Yolov5 (update) -> batch extraction -conv> Kalman
 
 class tracker(object):
-    def __init__(self, reid = None, kalman = None):
+    def __init__(self, reid = None, kalman = None, association = None):
         #Initialise ReID
         self.reid = ResNet50() if reid == None else reid
         
@@ -29,11 +29,13 @@ class tracker(object):
 
         #Initialise targets
         self.targs = np.array([])
-        self.age_max = 2
+        self.age_max = 10
         self.max_features = 100
 
         #Initialise association
-        self.lmbd = 0.5
+        lmbd = 0.5
+
+
     
     def update(self, detections, image):
 
@@ -56,9 +58,13 @@ class tracker(object):
             cost_matrix = self.lmbd * cost_matrix_1 + (1 - self.lmbd) * cost_matrix_2
 
         #Associate
-        m_det, m_tar, un_m_det, un_m_tar = self.associate(self.targs, detections, cost_matrix)
-        print(len(m_det), len(m_tar), len(un_m_det), len(un_m_tar))
-        print(m_tar.shape)
+        #m_det, m_tar, un_m_det, un_m_tar = self.associate(self.targs, detections, cost_matrix)
+        #print(len(m_det), len(m_tar), len(un_m_det), len(un_m_tar))
+        #print(m_tar.shape)
+        #m_ind, un_m_ind = self.association.match_cascade(track_indices, detect_indices, detections, detection_features, self.targs.pred_cov, self.targs.pred_state, self.targs, self.age_max)
+        #m_ind, un_m_ind = self.association.match_cascade(self.targs, detections)
+        m_det, m_tar, un_m_det, un_m_tar = [] , [] , [] , []
+        
         #   Process targets with no associated detection
         keep = []
         for t in un_m_tar:
@@ -77,7 +83,7 @@ class tracker(object):
         #   Process associated detections and targets
         for i in range(len(m_det)):
             self.kalman.update_state(m_tar[i], m_det[i])
-            m_tar[i].features.append(m_det[i][6:])
+            m_tar[i].features.append(m_det[i][6:]) #TODO FIX THIS no array append cause u retarded
             l = len(m_tar[i].features)
             if(l > self.max_features):
                 m_tar[i].features = m_tar[i].features[(l - self.max_features):]

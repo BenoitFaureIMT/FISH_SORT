@@ -41,7 +41,7 @@ class kalman_filter(object):
 
     #-----------------------------------------------------Update-----------------------------------------------------
     def update_pred(self, targ):
-        targ.pred_stzate = np.matmul(self.update_matrix, targ.state) #No controled input
+        targ.pred_state = np.matmul(self.update_matrix, targ.state) #No controled input
         targ.pred_cov = np.matmul(np.matmul(self.update_matrix, targ.cov), self.update_matrix.T) #+Q (ignored)
     
     def update_state_no_detect(self, targ):
