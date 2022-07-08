@@ -1,5 +1,7 @@
 import numpy as np
 import cv2
+from scipy.spatial.distance import cdist
+import lap
 
 from ReID import ResNet50
 from Kalman import kalman_filter
@@ -39,73 +41,53 @@ class tracker(object):
     
     def update(self, detections, image):
 
-        #Kalman predictions
         for t in self.targs:
             self.kalman.update_pred(t)
         
-        #Run ReID
-        #   Get cost matrix and store features
-        cost_matrix_1, detection_features = self.reid.get_cost_matrix(self.targs, image, detections)
-        detections = np.append(detections, detection_features, axis = 1)
+        IoU_threshold = 0.5
+        cosine_threshold = 0.2
+        cost_threshold = 0.7
 
-        #Run IoU
-        cost_matrix_2 = np.array([[1 - utils.IoU_n(dtc, utils.kalman_xyxy(tar.pred_state)) for dtc in detections] for tar in self.targs]) #TODO Need more efficient
-        print(cost_matrix_2)
+        cost_matrix_IoU, detection_features = self.reid.get_cost_matrix(self.targs, image, detections)
+        cost_matrix_cos = np.maximum(0.0, cdist(self.targs, detection_features, metric='cosine')) / 2.0
 
-        #Final cost matrix
-        cost_matrix = cost_matrix_1
-        if not (len(self.targs) == 0 or len(detections) == 0):
-            cost_matrix = self.lmbd * cost_matrix_1 + (1 - self.lmbd) * cost_matrix_2
+        cost_matrix_IoU[cost_matrix_IoU > IoU_threshold] = 1.0
+        cost_matrix_cos[cost_matrix_cos > cosine_threshold] = 1.0
+        cost_matrix = np.minimum(cost_matrix_IoU, cost_matrix_cos)
+        
+        match, unm_tr, unm_det = self.associate(self, cost_matrix, cost_threshold)
 
-        #Associate
-        #m_det, m_tar, un_m_det, un_m_tar = self.associate(self.targs, detections, cost_matrix)
-        #print(len(m_det), len(m_tar), len(un_m_det), len(un_m_tar))
-        #print(m_tar.shape)
-        #m_ind, un_m_ind = self.association.match_cascade(track_indices, detect_indices, detections, detection_features, self.targs.pred_cov, self.targs.pred_state, self.targs, self.age_max)
-        #m_ind, un_m_ind = self.association.match_cascade(self.targs, detections)
-        m_det, m_tar, un_m_det, un_m_tar = [] , [] , [] , []
+        for ind_track, ind_det in match:
+            tracks = self.targs[ind_track]
+            detect = detections[ind_det]
+            self.kalman.update_state(tracks,detect)
+            tracks.features.append(detect[6:])
+            l = len(tracks.features)
+            if l > self.max_features:
+                tracks.features = tracks.features[(l - self.max_features):]
+
+        new_targs = []
+        for ind_unm_tr in unm_tr:
+            unm_tracks = self.targs[ind_unm_tr]
+            self.kalman.update_state_no_detect(unm_tracks)
+            if unm_tracks.age <= self.age_max:
+                new_targs.append(unm_tracks)
         
-        #   Process targets with no associated detection
-        keep = []
-        for t in un_m_tar:
-            self.kalman.update_state_no_detect(t)
-            keep.append(t.age <= self.age_max)
-        #if len(keep) != 0:
-        self.targs = un_m_tar[keep]
-        
-        #   Process detections with no associated target
-        t = list(self.targs) #TODO FIX THIS SHIT
-        for d in un_m_det:
-            t.append(target(self.kalman, d[:4], d[6:]))
-            #np.append(self.targs, target(self.kalman, d[:4], d[-1]))
-        self.targs = np.array(t)
-        
-        #   Process associated detections and targets
-        for i in range(len(m_det)):
-            self.kalman.update_state(m_tar[i], m_det[i])
-            m_tar[i].features.append(m_det[i][6:]) #TODO FIX THIS no array append cause u retarded
-            l = len(m_tar[i].features)
-            if(l > self.max_features):
-                m_tar[i].features = m_tar[i].features[(l - self.max_features):]
+        for ind_unm_det in unm_det:
+            unm_detect = detections[ind_unm_det]
+            new_targs.append(target(self.kalman, unm_detect[:4], unm_detect[6:]))
+        self.targs = np.array(new_targs)
     
-    def associate(self, targets, detections, cost_matrix):
-        all_targs = np.zeros((0,))
-        all_ass = np.zeros((0,2054))
-        for n in range(1, self.age_max):
-            ts = [t.age == n for t in targets]
-            ic = cost_matrix[ts]
-            if(len(ic) == 0):
-                continue
-            ass = np.argmin(ic, axis = 1)
-            print(ass)
-            cost_matrix = np.delete(np.delete(cost_matrix, ts, axis = 0), ass, axis = 1)
-            #all_targs += targets[ts]
-            all_targs = np.append(all_targs, targets[ts], axis = 0)
-            targets = np.delete(targets, ts, axis = 0)
-            #all_ass += [d for d in detections[ass]]
-            all_ass = np.append(all_ass, detections[ass], axis = 0)
-            detections = np.delete(detections, ass, axis = 0)
-        return all_ass, all_targs, detections, targets
+    def associate(self, cost_mat, cost_thres):
+        matches, unmatch_track, unmatch_detection = [], [], []
+        cost, x, y = lap.lapjv(cost_mat, extend_cost=True, cost_limit=cost_thres)
+        for ix, mx in enumerate(x):
+            if mx >= 0:
+                matches.append([ix, mx])
+        unmatch_track = np.where(x < 0)[0]
+        unmatch_detection = np.where(y < 0)[0]
+        matches = np.asarray(matches)
+        return matches, unmatch_track, unmatch_detection
             
 
 def display(targs, img):
