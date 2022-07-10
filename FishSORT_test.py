@@ -34,9 +34,6 @@ class tracker(object):
         self.age_max = 10
         self.max_features = 100
 
-        #Initialise association
-        lmbd = 0.5
-
 
     
     def update(self, detections, image):
@@ -47,25 +44,18 @@ class tracker(object):
         IoU_threshold = 0.2
         cosine_threshold = 0.2
         cost_threshold = 0.2
-
+        
         cost_matrix_IoU, detection_features = self.reid.get_cost_matrix(self.targs, image, detections)
-        print(cost_matrix_IoU)
-        if cost_matrix_IoU == 0 or self.targs.size <= 0:
-            cost_matrix_cos = np.array([])
-            cost_matrix = np.array([])
+        
+        if (len(self.targs) == 0 or len(detections) == 0):
+            cost_matrix = cost_matrix_IoU
         else:
-            print(self.targs)
             cost_matrix_cos = np.maximum(0.0, cdist(self.targs, detection_features, metric='cosine')) / 2.0
             cost_matrix_IoU[cost_matrix_IoU > IoU_threshold] = 1.0
             cost_matrix_cos[cost_matrix_cos > cosine_threshold] = 1.0
             cost_matrix = np.minimum(cost_matrix_IoU, cost_matrix_cos)
 
-        print(cost_matrix)
-        print(cost_threshold)
         match, unm_tr, unm_det = self.associate(cost_matrix, cost_threshold)
-        #print(match)
-        #print(unm_tr)
-        #print(unm_det)
 
         for ind_track, ind_det in match:
             tracks = self.targs[ind_track]
@@ -84,14 +74,14 @@ class tracker(object):
                 new_targs.append(unm_tracks)
         
         for ind_unm_det in unm_det:
-            print("ca marche sa mere")
             unm_detect = detections[ind_unm_det]
             new_targs.append(target(self.kalman, unm_detect[:4], unm_detect[6:]))
         self.targs = np.array(new_targs)
     
     def associate(self, cost_mat, cost_thres):
         if cost_mat.size == 0:
-            return np.empty((0, 2), dtype=int), tuple(range(cost_mat.shape[0])), tuple(range(cost_mat.shape[0]))
+            print("ca arrive")
+            return np.empty((0, 2), dtype=int), tuple(range(cost_mat.shape[0])), tuple(range(cost_mat.shape[1]))
         matches, unmatch_track, unmatch_detection = [], [], []
         cost, x, y = lap.lapjv(cost_mat, extend_cost=True, cost_limit=cost_thres)
         for ix, mx in enumerate(x):
@@ -148,8 +138,8 @@ while ret:
     #print(len(tr.targs))
     #if len(tr.targs) > 0: 
     #print(tr.targs[0].state)
-    # display(tr.targs, frame)
-    # display_yolo(out, frame)
+    display(tr.targs, frame)
+    #display_yolo(out, frame)
     display_both(tr.targs, out, frame)
     cv2.waitKey(1)
 

@@ -44,7 +44,10 @@ class tracker(object):
         #Run ReID
         #   Get cost matrix and store features
         cost_matrix_1, detection_features = self.reid.get_cost_matrix(self.targs, image, detections)
+        print("Cost matrix :")
         print(cost_matrix_1)
+        print("targs")
+        print(self.targs)
         detections = np.append(detections, detection_features, axis = 1)
 
         #Run IoU
