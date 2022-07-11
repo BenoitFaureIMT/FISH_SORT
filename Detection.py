@@ -24,6 +24,7 @@ class YOLOv5(object):
         output_data = output_data[0]
         output_data = output_data[np.where(output_data[:, 4] > min_score)]
 
+        #TODO optimize with batched and by precalc
         output_data = [[bbox[1] - bbox[3] / 2, bbox[0] - bbox[2] / 2, bbox[1] + bbox[3] / 2, bbox[0] + bbox[2] / 2, bbox[4], bbox[5:].argmax()] for bbox in output_data]
 
         #NMS
