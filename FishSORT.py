@@ -44,15 +44,11 @@ class tracker(object):
         #Run ReID
         #   Get cost matrix and store features
         cost_matrix_1, detection_features = self.reid.get_cost_matrix(self.targs, image, detections)
-        print("Cost matrix :")
-        print(cost_matrix_1)
-        print("targs")
-        print(self.targs)
         detections = np.append(detections, detection_features, axis = 1)
 
         #Run IoU
         cost_matrix_2 = np.array([[1 - utils.IoU_n(dtc, utils.kalman_xyxy(tar.pred_state)) for dtc in detections] for tar in self.targs]) #TODO Need more efficient
-        print(cost_matrix_2)
+        #print(cost_matrix_2)
 
         #Final cost matrix
         cost_matrix = cost_matrix_1
@@ -61,8 +57,8 @@ class tracker(object):
 
         #Associate
         m_det, m_tar, un_m_det, un_m_tar = self.associate(self.targs, detections, cost_matrix)
-        print(len(m_det), len(m_tar), len(un_m_det), len(un_m_tar))
-        print(m_tar.shape)
+        #print(len(m_det), len(m_tar), len(un_m_det), len(un_m_tar))
+        #print(m_tar.shape)
         #   Process targets with no associated detection
         keep = []
         for t in un_m_tar:
@@ -74,6 +70,7 @@ class tracker(object):
         #   Process detections with no associated target
         t = list(self.targs) #TODO FIX THIS SHIT
         for d in un_m_det:
+            print(len(d))
             t.append(target(self.kalman, d[:4], d[6:]))
             #np.append(self.targs, target(self.kalman, d[:4], d[-1]))
         self.targs = np.array(t)
@@ -83,6 +80,8 @@ class tracker(object):
             self.kalman.update_state(m_tar[i], m_det[i])
             m_tar[i].features.append(m_det[i][6:])
             l = len(m_tar[i].features)
+            print("alors:")
+            print(l)
             if(l > self.max_features):
                 m_tar[i].features = m_tar[i].features[(l - self.max_features):]
     

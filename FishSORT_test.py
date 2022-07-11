@@ -46,11 +46,13 @@ class tracker(object):
         cost_threshold = 0.2
         
         cost_matrix_IoU, detection_features = self.reid.get_cost_matrix(self.targs, image, detections)
-        
+        detections = np.append(detections, detection_features, axis = 1)
+
         if (len(self.targs) == 0 or len(detections) == 0):
             cost_matrix = cost_matrix_IoU
         else:
-            cost_matrix_cos = np.maximum(0.0, cdist(self.targs, detection_features, metric='cosine')) / 2.0
+            target_f = np.asarray([self.targs[i].features[0] for i in range(len(self.targs))])
+            cost_matrix_cos = np.maximum(0.0, cdist(target_f, detection_features, metric='cosine')) / 2.0
             cost_matrix_IoU[cost_matrix_IoU > IoU_threshold] = 1.0
             cost_matrix_cos[cost_matrix_cos > cosine_threshold] = 1.0
             cost_matrix = np.minimum(cost_matrix_IoU, cost_matrix_cos)
@@ -80,10 +82,9 @@ class tracker(object):
     
     def associate(self, cost_mat, cost_thres):
         if cost_mat.size == 0:
-            print("ca arrive")
             return np.empty((0, 2), dtype=int), tuple(range(cost_mat.shape[0])), tuple(range(cost_mat.shape[1]))
         matches, unmatch_track, unmatch_detection = [], [], []
-        cost, x, y = lap.lapjv(cost_mat, extend_cost=True, cost_limit=cost_thres)
+        __, x, y = lap.lapjv(cost_mat, extend_cost=True, cost_limit=cost_thres)
         for ix, mx in enumerate(x):
             if mx >= 0:
                 matches.append([ix, mx])
