@@ -34,16 +34,23 @@ class tracker(object):
         self.age_max = 10
         self.max_features = 100
 
+        #Initialise EMA
+        self.alpha = 0.9
+        self.former_feat = None
+
 
     
     def update(self, detections, image):
 
-        for t in self.targs:
-            self.kalman.update_pred(t)
-        
         IoU_threshold = 0.2
         cosine_threshold = 0.2
         cost_threshold = 0.2
+
+        for t in self.targs:
+            self.kalman.update_pred(t)
+        
+        #EMA
+        
         
         cost_matrix_IoU, detection_features = self.reid.get_cost_matrix(self.targs, image, detections)
         detections = np.append(detections, detection_features, axis = 1)
@@ -58,6 +65,7 @@ class tracker(object):
             cost_matrix = np.minimum(cost_matrix_IoU, cost_matrix_cos)
 
         match, unm_tr, unm_det = self.associate(cost_matrix, cost_threshold)
+        print(match, unm_tr, unm_det)
 
         for ind_track, ind_det in match:
             tracks = self.targs[ind_track]
@@ -92,7 +100,16 @@ class tracker(object):
         unmatch_detection = np.where(y < 0)[0]
         matches = np.asarray(matches)
         return matches, unmatch_track, unmatch_detection
-            
+    
+    def EMA(self, feat):
+        if self.former_feat is None:
+            self.former_feat = feat
+            return feat
+        else:
+            new_feat = self.alpha * self.former_feat + (1 - self.alpha) * feat
+            self.former_feat = new_feat
+            return new_feat
+
 
 def display(targs, img):
     for t in targs:
