@@ -36,8 +36,7 @@ class tracker(object):
 
         #Initialise EMA
         self.alpha = 0.9
-        self.former_feat = None
-
+        #self.ema_feat = None
 
     
     def update(self, detections, image):
@@ -49,16 +48,15 @@ class tracker(object):
         for t in self.targs:
             self.kalman.update_pred(t)
         
-        #EMA
-        
         
         cost_matrix_IoU, detection_features = self.reid.get_cost_matrix(self.targs, image, detections)
         detections = np.append(detections, detection_features, axis = 1)
-
+        
         if (len(self.targs) == 0 or len(detections) == 0):
             cost_matrix = cost_matrix_IoU
         else:
-            target_f = np.asarray([self.targs[i].features[0] for i in range(len(self.targs))])
+            #target_f = np.asarray([self.targs[i].features[0] for i in range(len(self.targs))])
+            target_f = np.asarray([self.EMA(i) for i in range(len(self.targs))])
             cost_matrix_cos = np.maximum(0.0, cdist(target_f, detection_features, metric='cosine')) / 2.0
             cost_matrix_IoU[cost_matrix_IoU > IoU_threshold] = 1.0
             cost_matrix_cos[cost_matrix_cos > cosine_threshold] = 1.0
@@ -83,6 +81,7 @@ class tracker(object):
             if unm_tracks.age <= self.age_max:
                 new_targs.append(unm_tracks)
         
+        new_targs = list(new_targs)
         for ind_unm_det in unm_det:
             unm_detect = detections[ind_unm_det]
             new_targs.append(target(self.kalman, unm_detect[:4], unm_detect[6:]))
@@ -100,15 +99,14 @@ class tracker(object):
         unmatch_detection = np.where(y < 0)[0]
         matches = np.asarray(matches)
         return matches, unmatch_track, unmatch_detection
-    
-    def EMA(self, feat):
-        if self.former_feat is None:
-            self.former_feat = feat
-            return feat
+
+    def EMA(self, ind):
+        feat = self.targs[ind].features[0]
+        if not hasattr(self.targs[ind], "ema_feat"):
+            self.targs[ind].ema_feat = feat
         else:
-            new_feat = self.alpha * self.former_feat + (1 - self.alpha) * feat
-            self.former_feat = new_feat
-            return new_feat
+            self.targs[ind].ema_feat = self.alpha * self.targs[ind].ema_feat + (1-self.alpha) * feat
+        return self.targs[ind].ema_feat
 
 
 def display(targs, img):
